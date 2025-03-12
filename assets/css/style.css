@@ -875,7 +875,7 @@ main {
 
 
 /*-----------------------------------*\
-  #PORTFOLIO
+  #PROJECTS
 \*-----------------------------------*/
 
 .filter-list { display: none; }
@@ -1247,7 +1247,7 @@ textarea.form-input::-webkit-resizer { display: none; }
 
 
   /**
-   * #PORTFOLIO, BLOG 
+   * #PROJECTS, BLOG 
    */
 
   .project-img,
@@ -1506,7 +1506,7 @@ textarea.form-input::-webkit-resizer { display: none; }
 
 
   /**
-   * #PORTFOLIO, BLOG
+   * #PROJECTS, BLOG
    */
 
   .project-img, .blog-banner-box { border-radius: 16px; }
@@ -1599,7 +1599,7 @@ textarea.form-input::-webkit-resizer { display: none; }
 
 
   /**
-   * PORTFOLIO
+   * PROJECTS
    */
 
   .article-title { padding-bottom: 20px; }
@@ -1625,7 +1625,7 @@ textarea.form-input::-webkit-resizer { display: none; }
 
   .filter-item button.active { color: var(--blue-ish); }
 
-  /* portfolio and blog grid */
+  /* projects and blog grid */
 
   .project-list, .blog-posts-list { grid-template-columns: 1fr 1fr; }
 
@@ -1744,7 +1744,7 @@ textarea.form-input::-webkit-resizer { display: none; }
 
 
   /**
-   * PORTFOLIO
+   * PROJECTS
    */
 
   .project-list { grid-template-columns: repeat(3, 1fr); }
@@ -1882,4 +1882,21 @@ textarea.form-input::-webkit-resizer { display: none; }
 
   .timeline-text { max-width: 700px; }
 
+}
+
+.column {
+  float: left;
+  width: 75%;
+}
+.column-right {
+  float: left;
+  text-align: center;
+  width: 15%;
+}
+
+/* Clear floats after the columns */
+.row:after {
+  content: "";
+  display: table;
+  clear: both;
 }
