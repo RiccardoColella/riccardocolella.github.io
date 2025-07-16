@@ -1916,3 +1916,46 @@ textarea.form-input::-webkit-resizer { display: none; }
 .social-link:hover ion-icon {
   color:  var(--blue-ish);
 }
+
+/* Fullscreen overlay */
+.image-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* Show the overlay */
+.image-popup-overlay.active {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Enlarged image */
+.image-popup-overlay img {
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  animation: zoomIn 0.3s ease;
+}
+
+@keyframes zoomIn {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

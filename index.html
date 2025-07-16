@@ -682,7 +682,7 @@
                     <ion-icon name="eye-outline"></ion-icon>
                   </div>
 
-                  <img src="./assets/images/dnalogue.png" alt="fundo" loading="lazy">
+                  <img src="./assets/images/dnalogue.png" class="project-image" alt="DNAlogue" loading="lazy">
                 </figure>
 
                 <h3 class="project-title">DNAlogue</h3>
@@ -700,7 +700,7 @@
                     <ion-icon name="eye-outline"></ion-icon>
                   </div>
 
-                  <img src="./assets/images/gea++.png" alt="brawlhalla" loading="lazy">
+                  <img src="./assets/images/gea++.png" alt="GEA++" class="project-image" loading="lazy">
                 </figure>
 
                 <h3 class="project-title">GEA++</h3>
@@ -718,7 +718,7 @@
                     <ion-icon name="eye-outline"></ion-icon>
                   </div>
 
-                  <img src="./assets/images/adrenaline.png" alt="dsm." loading="lazy">
+                  <img src="./assets/images/adrenaline.png" alt="Adrenaline" class="project-image" loading="lazy">
                 </figure>
 
                 <h3 class="project-title">Adrenaline</h3>
@@ -736,7 +736,7 @@
                     <ion-icon name="eye-outline"></ion-icon>
                   </div>
 
-                  <img src="./assets/images/furhat.png" alt="metaspark" loading="lazy">
+                  <img src="./assets/images/furhat.png" alt="Furhat" class="project-image" loading="lazy">
                 </figure>
 
                 <h3 class="project-title">Furhat - cooking robot</h3>
@@ -754,7 +754,7 @@
                     <ion-icon name="eye-outline"></ion-icon>
                   </div>
 
-                  <img src="./assets/images/gaia.png" alt="summary" loading="lazy">
+                  <img src="./assets/images/gaia.png" alt="G.A.I.A." class="project-image" loading="lazy">
                 </figure>
 
                 <h3 class="project-title">G.A.I.A.</h3>
@@ -772,7 +772,7 @@
                     <ion-icon name="eye-outline"></ion-icon>
                   </div>
 
-                  <img src="./assets/images/polissone.png" alt="task manager" loading="lazy">
+                  <img src="./assets/images/polissone.png" alt="Polissone" class="project-image" loading="lazy">
                 </figure>
 
                 <h3 class="project-title">Polissonne</h3>
@@ -790,7 +790,7 @@
                     <ion-icon name="eye-outline"></ion-icon>
                   </div>
 
-                  <img src="./assets/images/relaxident.png" alt="arrival" loading="lazy">
+                  <img src="./assets/images/relaxident.png" alt="Relaxident" class="project-image" loading="lazy">
                 </figure>
 
                 <h3 class="project-title">Relaxident</h3>
@@ -840,6 +840,34 @@
       link.click();
       document.body.removeChild(link);
     }
+  </script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const popup = document.createElement('div');
+      popup.classList.add('image-popup-overlay');
+      popup.innerHTML = `<img src="" alt="Zoomed Image">`;
+      document.body.appendChild(popup);
+
+      // Attach click to the <a> inside each project item
+      document.querySelectorAll('.project-item a').forEach(link => {
+        link.addEventListener('click', function(e) {
+          e.preventDefault();
+
+          const img = this.querySelector('img.project-image');
+          if (!img) return;
+
+          console.log('Opening popup for', img.src);
+          popup.querySelector('img').src = img.src;
+          popup.classList.add('active');
+        });
+      });
+
+      popup.addEventListener('click', () => {
+        popup.classList.remove('active');
+      });
+    });
+
   </script>
 
 </body>
