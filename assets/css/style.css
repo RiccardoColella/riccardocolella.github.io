@@ -1900,3 +1900,19 @@ textarea.form-input::-webkit-resizer { display: none; }
   display: table;
   clear: both;
 }
+
+.social-link {
+  cursor: pointer;
+}
+
+.social-link:hover {
+  opacity: 0.8;                   /* Optional: subtle hover effect */
+  text-decoration: underline;
+  text-decoration-color:  var(--blue-ish);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.1); /* subtle elevation */
+}
+
+/* Change only icon color */
+.social-link:hover ion-icon {
+  color:  var(--blue-ish);
+}

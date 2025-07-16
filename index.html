@@ -101,12 +101,12 @@
             <div class="contact-info">
               <p class="contact-title">Email</p>
 
-              <a href="mailto:directcolellar@outlook.com" class="contact-link">directcolellar@outlook.com</a>
+              <a href="mailto:directcolellar@outlook.com" class="contact-link social-link">directcolellar@outlook.com</a>
             </div>
 
           </li>
 
-          <li class="contact-item" onclick="calendlyFunction()">
+          <li class="contact-item social-link" onclick="calendlyFunction()">
 
             <div class="icon-box">
               <ion-icon name="phone-portrait-outline"></ion-icon>
@@ -114,26 +114,20 @@
 
             <div class="contact-info">
               <p class="contact-title">Phone</p>
-
               <a class="contact-link">Click here!</a>
             </div>
 
           </li>
 
-          <li class="contact-item">
-
+          <li class="contact-item social-link" onclick="downloadCurriculum()">
             <div class="icon-box">
-              <a href="https://github.com/RiccardoColella/CV/blob/master/pdf/CV-RiccardoColella.pdf?raw=true" style="font-weight: unset; color: unset;">
               <ion-icon name="cloud-download-outline"></ion-icon>
             </div>
-
             <div class="contact-info">
-              <a href="https://github.com/RiccardoColella/CV/blob/master/pdf/CV-RiccardoColella.pdf?raw=true" class="social-link">
-                <p class="contact-title">Curriculum</p>
-
-                <address>Download here!</address>
-              </a>
+              <p class="contact-title">Curriculum</p>
+              <a class="contact-link">Download here!</a>
             </div>
+          </li>
 
           </li>
 
@@ -837,6 +831,18 @@
   <script src="https://assets.calendly.com/assets/external/widget.js" type="text/javascript" async></script>
   <script type="text/javascript">function calendlyFunction() { Calendly.initPopupWidget({ url: 'https://calendly.com/riccardocolella/30min'}); }</script>
   <!-- Calendly badge widget end -->
+
+  <script>
+    function downloadCurriculum() {
+      const link = document.createElement('a');
+      link.href = "https://github.com/RiccardoColella/CV/blob/master/pdf/CV-RiccardoColella.pdf?raw=true";
+      link.download = "CV-RiccardoColella.pdf"; // Suggested file name
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+
 </body>
 
 </html>
