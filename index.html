@@ -835,7 +835,7 @@
     function downloadCurriculum() {
       const link = document.createElement('a');
       link.href = "https://github.com/RiccardoColella/CV/blob/master/pdf/CV-RiccardoColella.pdf?raw=true";
-      link.download = "CV-RiccardoColella.pdf"; // Suggested file name
+      link.download = "CV-RiccardoColella.pdf";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -843,31 +843,65 @@
   </script>
 
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
+      // Create popup overlay once
       const popup = document.createElement('div');
       popup.classList.add('image-popup-overlay');
-      popup.innerHTML = `<img src="" alt="Zoomed Image">`;
+
+      popup.innerHTML = `
+        <div class="popup-content">
+          <img alt="Zoomed Image">
+          <div class="responsive-video-wrapper">
+            <iframe allow="autoplay; fullscreen" frameborder="0" allowfullscreen></iframe>
+          </div>
+        </div>
+      `;
+
       document.body.appendChild(popup);
 
-      // Attach click to the <a> inside each project item
+      const popupImg = popup.querySelector('img');
+      const popupIframeWrapper = popup.querySelector('.responsive-video-wrapper');
+      const popupIframe = popup.querySelector('iframe');
+
+      // Add click listener to all project-item links
       document.querySelectorAll('.project-item a').forEach(link => {
-        link.addEventListener('click', function(e) {
+        link.addEventListener('click', function (e) {
           e.preventDefault();
 
-          const img = this.querySelector('img.project-image');
-          if (!img) return;
+          const href = this.href;
+          const img = this.querySelector('img');
+          const driveMatch = href.match(/https:\/\/drive\.google\.com\/file\/d\/([^\/]+)\/view/);
 
-          console.log('Opening popup for', img.src);
-          popup.querySelector('img').src = img.src;
+          if (driveMatch) {
+            // Google Drive video
+            const fileId = driveMatch[1];
+            const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+
+            popupImg.style.display = 'none';
+            popupIframeWrapper.style.display = 'block';
+            popupIframe.src = embedUrl;
+
+          } else if (img) {
+            // Normal image
+            popupIframeWrapper.style.display = 'none';
+            popupIframe.src = '';
+            popupImg.style.display = 'block';
+            popupImg.src = img.src;
+
+          } else {
+            return; // nothing to show
+          }
+
           popup.classList.add('active');
         });
       });
 
+      // Click on overlay closes popup
       popup.addEventListener('click', () => {
         popup.classList.remove('active');
+        popupIframe.src = '';
       });
     });
-
   </script>
 
 </body>
