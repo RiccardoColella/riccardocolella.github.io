@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#07070c">
+<title>Fiori</title>
+<link rel="shortcut icon" href="../assets/images/rc-logo-white.png" type="image/x-icon">
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #07070c;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    touch-action: none;
+    cursor: grab;
+  }
+  canvas:active { cursor: grabbing; }
+  .msg {
+    position: fixed;
+    left: 0; right: 0;
+    bottom: max(4vh, env(safe-area-inset-bottom));
+    margin: 0;
+    text-align: center;
+    font: bold clamp(18px, 4.5vmin, 34px) ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color: #ffd166;
+    text-shadow: 0 0 12px rgba(255, 140, 180, 0.55);
+    pointer-events: none;
+    user-select: none;
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 50% { opacity: 0.7; transform: translateY(-3px); } }
+  @media (prefers-reduced-motion: reduce) { .msg { animation: none; } }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Un bouquet di fiori colorati in ASCII art che ruota"></canvas>
+<p class="msg">ciao! :)</p>
+<script>
+(() => {
+  'use strict';
+
+  // ---------- tiny vector helpers ----------
+  const TAU = Math.PI * 2, PI = Math.PI;
+  const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const len = a => Math.hypot(a[0], a[1], a[2]);
+  const norm = a => { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+  const frame = d => {
+    const ref = Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+    const u = norm(cross(d, ref));
+    return { u, v: cross(d, u) };
+  };
+  let seed = 7;
+  const rnd = () => { seed = (seed + 0x6D2B79F5) | 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+
+  // ---------- materials (h, s, l) ----------
+  const MATS = {
+    red:     [350, 85, 55],
+    pink:    [330, 85, 72],
+    white:   [45, 25, 93],
+    yellow:  [48, 98, 60],
+    orange:  [22, 98, 60],
+    purple:  [282, 70, 70],
+    blue:    [218, 90, 66],
+    center:  [38, 95, 52],
+    brown:   [25, 65, 35],
+    stem:    [105, 55, 42],
+    leaf:    [130, 55, 45],
+    ribbon:  [46, 95, 62],
+    breath:  [0, 0, 97],
+  };
+  const MAT_NAMES = Object.keys(MATS);
+  const MAT = Object.fromEntries(MAT_NAMES.map((n, i) => [n, i]));
+  const RAMP = '.,-~:;=!*#$@';
+  const LEVELS = RAMP.length;
+  const PALETTE = MAT_NAMES.map(n => {
+    const [h, s, l] = MATS[n];
+    return Array.from({ length: LEVELS }, (_, i) => {
+      const k = i / (LEVELS - 1);
+      return `hsl(${h},${s}%,${Math.min(96, l * (0.35 + 0.8 * k))}%)`;
+    });
+  });
+
+  // ---------- geometry: a point cloud with normals ----------
+  const P = [], N = [], M = [];
+  const SP = 0.014; // sampling spacing (world units)
+  const addPoint = (p, n, m) => { P.push(p[0], p[1], p[2]); N.push(n[0], n[1], n[2]); M.push(m); };
+
+  // parametric surface f(a,b) with a,b in [0,1]; normal from numeric partials
+  function surface(f, na, nb, m, keep, fallbackN) {
+    const e = 1e-3;
+    for (let i = 0; i <= na; i++) {
+      for (let j = 0; j < nb; j++) {
+        const a = i / na, b = j / nb;
+        if (keep && !keep(a, b)) continue;
+        const p = f(a, b);
+        const da = a + e <= 1 ? sub(f(a + e, b), p) : sub(p, f(a - e, b));
+        const db = sub(f(a, b + e), p);
+        const c = cross(da, db);
+        addPoint(p, len(c) > 1e-12 ? norm(c) : (fallbackN || [0, 1, 0]), m);
+      }
+    }
+  }
+
+  function tube(fn, r, m) {
+    let L = 0;
+    for (let i = 0; i < 32; i++) L += len(sub(fn((i + 1) / 32), fn(i / 32)));
+    const n = Math.max(2, Math.ceil(L / SP));
+    for (let i = 0; i <= n; i++) {
+      const t = i / n, p = fn(t);
+      const tan = norm(sub(fn(Math.min(1, t + 1e-3)), fn(Math.max(0, t - 1e-3))));
+      const { u, v } = frame(tan);
+      for (let k = 0; k < 6; k++) {
+        const a = k / 6 * TAU;
+        const e = add(mul(u, Math.cos(a)), mul(v, Math.sin(a)));
+        addPoint(add(p, mul(e, r)), e, m);
+      }
+    }
+  }
+
+  const radial = (u, v, th) => add(mul(u, Math.cos(th)), mul(v, Math.sin(th)));
+
+  function daisy(c, d, R, k, mp, mc) {
+    const { u, v } = frame(d);
+    surface((a, b) => {
+      const r = R * (0.1 + 0.9 * a), th = b * TAU;
+      const h = 0.3 * R * (r / R) ** 2;
+      return add(c, add(mul(d, h), mul(radial(u, v, th), r)));
+    }, Math.ceil(R / SP), Math.ceil(TAU * R / SP), mp, (a, b) => {
+      const prof = Math.pow(Math.abs(Math.cos(k * b * TAU / 2)), 0.55);
+      return 0.1 + 0.9 * a <= 0.3 + 0.7 * prof;
+    }, d);
+    const rc = 0.3 * R;
+    surface((a, b) => {
+      const al = a * PI / 2, th = b * TAU;
+      return add(c, add(mul(d, 0.03 * R + Math.cos(al) * rc * 0.7), mul(radial(u, v, th), Math.sin(al) * rc)));
+    }, Math.ceil(rc * 2 / SP) + 2, Math.ceil(TAU * rc / SP) + 4, mc, null, d);
+  }
+
+  function rose(c, d, R, m) {
+    const { u, v } = frame(d);
+    surface((a, b) => {
+      const al = a * 0.68 * PI, th = b * TAU;
+      const bump = 0.8 + 0.2 * Math.abs(Math.sin(3 * th + 10 * al));
+      const dir = add(mul(d, Math.cos(al)), mul(radial(u, v, th), Math.sin(al)));
+      return add(c, mul(dir, R * bump));
+    }, Math.ceil(2.2 * R / SP) * 1.5, Math.ceil(TAU * R / SP) * 1.5, m, null, d);
+  }
+
+  function tulip(c, d, R, m) {
+    const { u, v } = frame(d);
+    surface((a, b) => {
+      const th = b * TAU;
+      const amin = 0.16 * PI + 0.16 * PI * Math.abs(Math.cos(1.5 * th));
+      const al = amin + a * (0.92 * PI - amin);
+      return add(c, add(mul(d, Math.cos(al) * R * 1.35), mul(radial(u, v, th), Math.sin(al) * R)));
+    }, Math.ceil(3 * R / SP), Math.ceil(TAU * R / SP) * 1.5, m, null, d);
+  }
+
+  function sphere(c, r, m) {
+    surface((a, b) => {
+      const al = a * PI, th = b * TAU;
+      return add(c, [r * Math.sin(al) * Math.cos(th), r * Math.cos(al), r * Math.sin(al) * Math.sin(th)]);
+    }, 5, 9, m);
+  }
+
+  function leaf(base, dir, L, W, m) {
+    let side = cross(dir, [0, 1, 0]);
+    side = len(side) < 1e-6 ? [1, 0, 0] : norm(side);
+    const up = cross(side, dir);
+    surface((s, t) => {
+      const tt = t * 2 - 1;
+      const w = W * Math.pow(Math.sin(PI * s), 0.8);
+      let p = add(base, mul(dir, L * s));
+      p = add(p, [0, -0.45 * L * s * s, 0]);
+      p = add(p, mul(side, tt * w));
+      return add(p, mul(up, Math.abs(tt) * w * 0.4));
+    }, Math.ceil(L / SP * 1.3), Math.ceil(2 * W / SP) + 3, m);
+  }
+
+  // ---------- build the bouquet ----------
+  const TIE = [0, -0.6, 0];
+  const DOME = [0, 0.3, 0], RD = 0.7;
+  const TYPES = {
+    roseRed:    { kind: 'rose',  m: 'red',    R: 0.19 },
+    rosePink:   { kind: 'rose',  m: 'pink',   R: 0.18 },
+    daisyW:     { kind: 'daisy', m: 'white',  c: 'center', R: 0.2,  k: 14 },
+    daisyY:     { kind: 'daisy', m: 'yellow', c: 'brown',  R: 0.21, k: 16 },
+    cosmos:     { kind: 'daisy', m: 'purple', c: 'center', R: 0.19, k: 8 },
+    cornflower: { kind: 'daisy', m: 'blue',   c: 'purple', R: 0.14, k: 12 },
+    tulip:      { kind: 'tulip', m: 'orange', R: 0.13 },
+    tulipPink:  { kind: 'tulip', m: 'pink',   R: 0.13 },
+  };
+
+  const heads = [{ phi: 0, th: 0, type: 'roseRed' }];
+  ['tulip', 'daisyW', 'rosePink', 'cosmos', 'daisyY']
+    .forEach((type, i) => heads.push({ phi: 0.55, th: i * TAU / 5 + 0.3, type }));
+  ['roseRed', 'cornflower', 'daisyW', 'tulipPink', 'daisyY', 'rosePink', 'cosmos', 'tulip']
+    .forEach((type, i) => heads.push({ phi: 1.05, th: i * TAU / 8 + 0.1, type }));
+  ['cornflower', 'daisyW', 'cornflower', 'cosmos', 'cornflower', 'daisyY']
+    .forEach((type, i) => heads.push({ phi: 1.4, th: i * TAU / 6 + 0.55, type: type }));
+
+  for (const h of heads) {
+    const phi = h.phi + (h.phi ? (rnd() - 0.5) * 0.12 : 0);
+    const th = h.th + (rnd() - 0.5) * 0.2;
+    const pos = add(DOME, mul([Math.sin(phi) * Math.cos(th), Math.cos(phi), Math.sin(phi) * Math.sin(th)], RD));
+    const d = norm(sub(pos, [0, -0.2, 0]));
+    const T = TYPES[h.type];
+    const small = h.phi > 1.3 ? 0.8 : 1;
+    const R = T.R * small;
+
+    // stem: quadratic Bezier from the cut end, through the tie, up to the head
+    const B = add(TIE, [Math.cos(th + PI * 0.15) * 0.07 * Math.sin(phi + 0.3), -1.0, Math.sin(th + PI * 0.15) * 0.07 * Math.sin(phi + 0.3)]);
+    const ctrl = sub(mul(TIE, 2), mul(add(B, pos), 0.5));
+    tube(t => add(add(mul(B, (1 - t) ** 2), mul(ctrl, 2 * t * (1 - t))), mul(pos, t * t)), 0.014, MAT.stem);
+
+    if (T.kind === 'rose') rose(add(pos, mul(d, R * 0.55)), d, R, MAT[T.m]);
+    else if (T.kind === 'tulip') tulip(add(pos, mul(d, R * 1.2)), d, R, MAT[T.m]);
+    else daisy(pos, d, R, T.k, MAT[T.m], MAT[T.c]);
+  }
+
+  // baby's breath clusters tucked between the flowers
+  for (let i = 0; i < 14; i++) {
+    const phi = 0.3 + rnd() * 1.1, th = rnd() * TAU;
+    const c = add(DOME, mul([Math.sin(phi) * Math.cos(th), Math.cos(phi), Math.sin(phi) * Math.sin(th)], RD + 0.12));
+    for (let j = 0; j < 7; j++) {
+      sphere(add(c, [(rnd() - 0.5) * 0.14, (rnd() - 0.5) * 0.14, (rnd() - 0.5) * 0.14]), 0.02, MAT.breath);
+    }
+  }
+
+  // leaves fanning out above the tie
+  for (let i = 0; i < 7; i++) {
+    const th = i * TAU / 7 + 0.2;
+    const base = add(TIE, [Math.cos(th) * 0.05, 0.18, Math.sin(th) * 0.05]);
+    leaf(base, norm([Math.cos(th), 0.9, Math.sin(th)]), 0.62, 0.085, MAT.leaf);
+  }
+
+  // ribbon: band + bow loops + tails
+  surface((a, b) => {
+    const th = a * TAU, ph = b * TAU, R0 = 0.072, r0 = 0.028;
+    return [(R0 + r0 * Math.cos(ph)) * Math.cos(th), TIE[1] + r0 * 1.6 * Math.sin(ph), (R0 + r0 * Math.cos(ph)) * Math.sin(th)];
+  }, 50, 14, MAT.ribbon);
+  for (const s of [-1, 1]) {
+    tube(t => {
+      const a = t * TAU;
+      return [s * (0.13 + 0.11 * Math.cos(a)), TIE[1] + 0.03 + 0.06 * Math.sin(a), 0.1 + 0.03 * Math.cos(a)];
+    }, 0.022, MAT.ribbon);
+    tube(t => [s * (0.02 + 0.13 * t), TIE[1] - 0.02 - 0.38 * t, 0.1 + 0.04 * Math.sin(t * 7)], 0.02, MAT.ribbon);
+  }
+  sphere([0, TIE[1] + 0.01, 0.1], 0.035, MAT.ribbon);
+
+  const COUNT = M.length;
+  const PX = Float32Array.from(P), NX = Float32Array.from(N), MX = Uint8Array.from(M);
+
+  // bounds for auto-fit
+  let rMax = 0, yMin = Infinity, yMax = -Infinity;
+  for (let i = 0; i < COUNT; i++) {
+    const x = PX[i * 3], y = PX[i * 3 + 1], z = PX[i * 3 + 2];
+    rMax = Math.max(rMax, Math.hypot(x, z));
+    yMin = Math.min(yMin, y); yMax = Math.max(yMax, y);
+  }
+  const yMid = (yMin + yMax) / 2;
+
+  // ---------- rendering ----------
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const FONT = 'ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
+  let W, H, cols, rows, charW, lineH, fontSize, scale, depth, cellCol, cellChr, stars;
+
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    fontSize = Math.max(7, Math.min(15, Math.min(W, H) / 52));
+    ctx.font = `bold ${fontSize}px ${FONT}`;
+    charW = ctx.measureText('M').width;
+    lineH = fontSize * 1.05;
+    cols = Math.ceil(W / charW); rows = Math.ceil(H / lineH);
+    depth = new Float32Array(cols * rows);
+    cellCol = new Int16Array(cols * rows);
+    cellChr = new Uint8Array(cols * rows);
+    scale = Math.min(W * 0.9 / (2 * rMax), H * 0.78 / (yMax - yMin));
+    stars = Array.from({ length: Math.floor(cols * rows * 0.012) }, () => ({
+      i: Math.floor(Math.random() * cols * rows),
+      ph: Math.random() * TAU,
+      sp: 0.6 + Math.random() * 1.6,
+      ch: '.·+*'[Math.floor(Math.random() * 4)],
+    }));
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const light = norm([-0.5, 0.7, 0.65]);
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const AUTO = reduce ? 0.18 : 0.55;
+  let yaw = 0, pitch = 0.28, vel = AUTO, dragging = false, lastX = 0, lastY = 0, lastT = 0;
+
+  canvas.addEventListener('pointerdown', e => {
+    dragging = true; lastX = e.clientX; lastY = e.clientY; lastT = performance.now();
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const now = performance.now(), dt = Math.max(1, now - lastT) / 1000;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    yaw += dx * 0.01;
+    pitch = Math.max(-0.3, Math.min(0.9, pitch + dy * 0.006));
+    vel = (dx * 0.01) / dt;
+    lastX = e.clientX; lastY = e.clientY; lastT = now;
+  });
+  const end = () => { dragging = false; };
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointercancel', end);
+
+  let prev = performance.now();
+  function frameLoop(now) {
+    const dt = Math.min(0.05, (now - prev) / 1000); prev = now;
+    if (!dragging) {
+      vel += (AUTO - vel) * Math.min(1, dt * 1.5);
+      yaw += vel * dt;
+    }
+    const sway = reduce ? 0 : Math.sin(now / 1600) * 0.04;
+    const ca = Math.cos(yaw), sa = Math.sin(yaw);
+    const cb = Math.cos(pitch + sway), sb = Math.sin(pitch + sway);
+    const cx = W / 2, cy = H * 0.45;
+
+    depth.fill(-1e9);
+    for (let i = 0; i < COUNT; i++) {
+      const j = i * 3;
+      const x = PX[j], y = PX[j + 1] - yMid, z = PX[j + 2];
+      const x1 = x * ca + z * sa, z1 = -x * sa + z * ca;
+      const y2 = y * cb - z1 * sb, z2 = z1 * cb + y * sb;
+      const f = 5 / (5 - z2);
+      const col = ((cx + x1 * scale * f) / charW) | 0;
+      const row = ((cy - y2 * scale * f) / lineH) | 0;
+      if (col < 0 || row < 0 || col >= cols || row >= rows) continue;
+      const k = row * cols + col;
+      if (z2 <= depth[k]) continue;
+      depth[k] = z2;
+      const nx = NX[j], ny = NX[j + 1], nz = NX[j + 2];
+      let nx1 = nx * ca + nz * sa; const nz1 = -nx * sa + nz * ca;
+      let ny2 = ny * cb - nz1 * sb, nz2 = nz1 * cb + ny * sb;
+      if (nz2 < 0) { nx1 = -nx1; ny2 = -ny2; nz2 = -nz2; }
+      const lum = 0.12 + 0.88 * Math.max(0, nx1 * light[0] + ny2 * light[1] + nz2 * light[2]);
+      const lvl = Math.min(LEVELS - 1, (lum * LEVELS) | 0);
+      cellChr[k] = lvl;
+      cellCol[k] = MX[i] * LEVELS + lvl;
+    }
+
+    ctx.fillStyle = '#07070c';
+    ctx.fillRect(0, 0, W, H);
+    ctx.textBaseline = 'top';
+
+    const t = now / 1000;
+    for (const s of stars) {
+      if (depth[s.i] > -1e9) continue;
+      const a = Math.max(0, Math.sin(t * s.sp + s.ph));
+      if (a < 0.05) continue;
+      ctx.fillStyle = `rgba(200,210,255,${(a * 0.45).toFixed(2)})`;
+      ctx.fillText(s.ch, (s.i % cols) * charW, ((s.i / cols) | 0) * lineH);
+    }
+
+    let last = -1;
+    for (let k = 0, n = cols * rows; k < n; k++) {
+      if (depth[k] === -1e9) continue;
+      const c = cellCol[k];
+      if (c !== last) { ctx.fillStyle = PALETTE[(c / LEVELS) | 0][c % LEVELS]; last = c; }
+      ctx.fillText(RAMP[cellChr[k]], (k % cols) * charW, ((k / cols) | 0) * lineH);
+    }
+    requestAnimationFrame(frameLoop);
+  }
+  requestAnimationFrame(frameLoop);
+})();
+</script>
+</body>
+</html>
