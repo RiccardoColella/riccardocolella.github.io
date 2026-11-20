@@ -29,7 +29,9 @@
     bottom: max(4vh, env(safe-area-inset-bottom));
     margin: 0;
     text-align: center;
-    font: bold clamp(18px, 4.5vmin, 34px) ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    padding: 0 16px;
+    text-wrap: balance;
+    font: bold clamp(15px, 4vmin, 30px) ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     color: #ffd166;
     text-shadow: 0 0 12px rgba(255, 140, 180, 0.55);
     pointer-events: none;
@@ -42,7 +44,7 @@
 </head>
 <body>
 <canvas id="c" aria-label="Un bouquet di fiori colorati in ASCII art che ruota"></canvas>
-<p class="msg">ciao! :)</p>
+<p class="msg">sono sdraiato sul prato e penso a te&nbsp;:)</p>
 <script>
 (() => {
   'use strict';
